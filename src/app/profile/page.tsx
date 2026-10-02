@@ -16,6 +16,13 @@ export default async function ProfilePage() {
   const session = await auth();
   if (!session?.user?.id) redirect("/");
 
+  const dbUser = await prisma.user.findUnique({
+    where: { id: session.user.id },
+    select: { name: true, image: true, avatarPreset: true },
+  });
+  const avatarSrc = dbUser?.avatarPreset || dbUser?.image || null;
+  const displayName = dbUser?.name || session.user?.name || "USER";
+
   const watchlist = await prisma.watchlistItem.findMany({
     where: { userId: session.user.id },
     orderBy: { updatedAt: "desc" },
@@ -32,17 +39,18 @@ export default async function ProfilePage() {
     <div className="max-w-7xl mx-auto px-4 pt-24 pb-16">
       {/* User header */}
       <div className="flex items-center gap-4 mb-10">
-        {session.user?.image && (
+        {avatarSrc && (
           <Image
-            src={session.user.image}
-            alt={session.user.name || ""}
+            src={avatarSrc}
+            alt={displayName}
             width={64}
             height={64}
-            className="rounded-full border-2 border-brand"
+            unoptimized
+            className="rounded-full border-2 border-brand object-cover"
           />
         )}
         <div>
-          <h1 className="font-display text-3xl text-white">{(session.user?.name || "USER").toUpperCase()}</h1>
+          <h1 className="font-display text-3xl text-white">{displayName.toUpperCase()}</h1>
           <p className="text-gray-500 text-sm">{watchlist.length} anime in list</p>
         </div>
       </div>
