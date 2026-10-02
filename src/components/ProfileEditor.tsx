@@ -1,11 +1,13 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { AvatarPicker } from "@/components/AvatarPicker";
 import { Save } from "lucide-react";
 
 export function ProfileEditor() {
+  const router = useRouter();
   const { data: session, update } = useSession();
   const [name, setName] = useState(session?.user?.name || "");
   const [avatar, setAvatar] = useState<string | null>(
@@ -13,21 +15,28 @@ export function ProfileEditor() {
   );
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [error, setError] = useState("");
 
   async function handleSave() {
     setSaving(true);
     setSaved(false);
+    setError("");
     try {
       const res = await fetch("/api/profile", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name, avatarPreset: avatar }),
       });
-      if (res.ok) {
-        await update();
-        setSaved(true);
-        setTimeout(() => setSaved(false), 2000);
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setError(data.error || "Could not save changes");
+        return;
       }
+      // Sending data makes NextAuth re-read the user from the database.
+      await update({ refresh: Date.now() });
+      router.refresh();
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
     } finally {
       setSaving(false);
     }
@@ -47,6 +56,8 @@ export function ProfileEditor() {
 
       <label className="text-xs text-gray-500 mb-2 block">Choose Avatar</label>
       <AvatarPicker current={avatar} onSelect={setAvatar} />
+
+      {error && <p className="text-red-400 text-sm mt-4">{error}</p>}
 
       <button
         onClick={handleSave}
